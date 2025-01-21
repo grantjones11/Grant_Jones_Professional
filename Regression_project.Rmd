@@ -1,0 +1,357 @@
+---
+title: "Regression Model for Grad School Admissions"
+author: "Grant Jones"
+date: "2024-11-25"
+output: word_document
+
+---
+# Data Initialization
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+library(pander)
+library(ISLR)
+library(car)
+library(alr4)
+library(MASS)
+data <- read.csv("adm_data.csv")
+attach(data)
+plot(data)
+```
+# Data View
+```{r echo=FALSE}
+data
+```
+
+# Model Setup
+```{r}
+admin_model <- lm(Chance.of.Admit ~
+                    . -Serial.No., data = data)
+
+pander(summary(admin_model))
+```
+
+# Model Diagnostics for original model
+```{r}
+par(mfrow = c(2,2))
+plot(admin_model)
+```
+
+
+
+# Statistical Significance Plots
+```{r message=FALSE, Warning=FALSE, echo = FALSE}
+library(ggplot2)
+library(gridExtra)
+
+p1 = ggplot(data, aes(GRE.Score, Chance.of.Admit))+
+  geom_point(color = 'blue')+
+  geom_smooth(method ='lm', se = F, color = "red")
+
+p2 = ggplot(data, aes(TOEFL.Score, Chance.of.Admit))+
+  geom_point(color = 'blue')+
+  geom_smooth(method ='lm', se = F, color = "red")
+
+p3 = ggplot(data, aes(University.Rating, Chance.of.Admit))+
+  geom_point(color = 'blue')+
+  geom_smooth(method ='lm', se = F, color = "red")
+
+p4 = ggplot(data, aes(SOP, Chance.of.Admit))+
+  geom_point(color = 'blue')+
+  geom_smooth(method ='lm', se = F, color = "red")
+
+p5 = ggplot(data, aes(LOR, Chance.of.Admit))+
+  geom_point(color = 'blue')+
+  geom_smooth(method ='lm', se = F, color = "red")
+
+p6 = ggplot(data, aes(CGPA, Chance.of.Admit))+
+  geom_point(color = 'blue')+
+  geom_smooth(method ='lm', se = F, color = "red")
+
+p7 = ggplot(data, aes(Research, Chance.of.Admit))+
+  geom_point(color = 'blue')+
+  geom_smooth(method ='lm', se = F, color = "red")
+
+grid.arrange(p1, p2, p3, p4, p5, p6, p7, ncol=2)
+```
+
+
+
+# Added Variable Plots
+```{r echo= FALSE}
+par(mfrow = c(2,2))
+avPlots(admin_model, pch = 20, col = 'blue')
+```
+
+
+
+# Standardized Residuals Plots
+```{r echo=FALSE}
+par(mfrow = c(3,2), mar = c(4,4,2,1))
+StanRes1 <- rstandard(admin_model)
+
+plot(GRE.Score,StanRes1,ylab="Standardized Residuals", pch=20, col = "blue")
+abline(h = 0, col = "red")
+plot(TOEFL.Score,StanRes1,ylab="Standardized Residuals", pch=20, col = "blue")
+abline(h = 0, col = "red")
+plot(University.Rating,StanRes1,ylab="Standardized Residuals", pch=20, col = "blue")
+abline(h = 0, col = "red")
+plot(SOP,StanRes1,ylab="Standardized Residuals", pch=20, col = "blue")
+abline(h = 0, col = "red")
+plot(LOR,StanRes1,ylab="Standardized Residuals", pch=20, col = "blue")
+abline(h = 0, col = "red")
+plot(CGPA,StanRes1,ylab="Standardized Residuals", pch=20, col = "blue")
+abline(h = 0, col = "red")
+plot(Research,StanRes1,ylab="Standardized Residuals", pch=20, col = "blue")
+abline(h = 0, col = "red")
+plot(admin_model$fitted.values, StanRes1, ylab = "Standardized Residuals", xlab="Fitted Values")
+abline(h = 0, col = "red")
+```
+
+
+# Inverse Response Plot for Response Variable
+```{r}
+inverseResponsePlot(admin_model, lambda = seq(-1,3,by=0.5))
+```
+Plot indicates that a basic cubic transformation can be performed to strengthen the model. 
+
+
+# Fitting the Cubic Model 
+```{r}
+cubeFit <- lm(I(Chance.of.Admit^3) ~., data = data)
+pander(summary(cubeFit))
+```
+
+# Cube Fit Model Diagnostics
+```{r}
+par(mfrow = c(2,2), mar = c(4,4,2,1))
+plot(cubeFit)
+```
+
+
+
+# Power Transform Predictor Variables (Approach 1)
+```{r}
+summary(powerTransform(data[,2:7]))
+```
+
+
+
+
+# Transform Response Variable
+```{r}
+transformed_fit <- lm(Chance.of.Admit ~ I(GRE.Score^5)
+                      + TOEFL.Score + I(University.Rating^0.75) 
+                      + I(SOP^1.33) + LOR + I(CGPA^2) + Research)
+inverseResponsePlot(transformed_fit)
+```
+
+
+
+# Fitting the New Model
+```{r}
+transformed_fit_2 <- lm(I(Chance.of.Admit^3) ~ I(GRE.Score^5) + TOEFL.Score + I(University.Rating^0.75) + I(SOP^1.33) + LOR + I(CGPA^2) + Research)
+
+pander(summary(transformed_fit_2))
+```
+
+
+
+# Model Diagnostics for Transformed Model
+```{r echo=FALSE}
+par(mfrow = c(2,2), mar = c(4,4,2,1))
+plot(transformed_fit_2)
+```
+
+# Variance Inflation Factor for Transformed Model
+```{r}
+pander(vif(transformed_fit_2))
+```
+
+# Power Transform (Approach 2)
+```{r warning = FALSE}
+app2_data <- data[,c(2:7,9)]
+pander(summary(powerTransform(app2_data)))
+```
+
+# Fitting Transformed model (Approach 2)
+```{r echo = FALSE}
+transformed_fit_app2 <- lm(I(Chance.of.Admit^2.67) ~ I(GRE.Score^5) 
+                           + I(TOEFL.Score^2) + I(University.Rating^0.75) 
+                           + I(SOP^1.33) + LOR + I(CGPA^3.33) + Research,
+                           data = data)
+
+pander(summary(transformed_fit_app2))
+```
+
+# Create a Subset for Variable Selection
+```{r}
+library(leaps)
+
+reg.fit <- regsubsets(I(Chance.of.Admit^3) ~ I(GRE.Score^5) + 
+                        TOEFL.Score + I(University.Rating^0.75) +
+                        I(SOP^1.33) + LOR + I(CGPA^2) + 
+                        Research, data = data)
+
+reg.summary <- summary(reg.fit)
+```
+
+# Plotting BIC
+```{r echo=FALSE}
+plot(reg.fit, col = "blue")
+```
+
+# Finding Ideal Subsets
+```{r}
+which.max(reg.summary$adjr2)
+
+which.min(reg.summary$cp)
+
+which.min(reg.summary$bic)
+```
+
+# Plotting Ideal Variable Numbers
+```{r echo=FALSE}
+par(mfrow = c(2,2))
+plot(reg.summary$rss, xlab = "Number of Variable",
+ylab = "RSS", type = "l")
+plot(reg.summary$adjr2, xlab = "Number of Variable",
+ylab=expression(paste("Adjusted ",R^2)), type = "l")
+points(6, reg.summary$adjr2[6], col="red", cex = 2, pch=20)
+plot(reg.summary$cp, xlab = "Number of Variable",
+ylab = "Cp", type = "l")
+points(6, reg.summary$cp[6], col="red", cex = 2, pch = 20)
+plot(reg.summary$bic, xlab = "Number of Variable",
+ylab = "BIC", type = "l")
+points(5, reg.summary$bic[5], col="red", cex = 2, pch = 20)
+```
+
+# Fitting Model with Six Predictors
+```{r}
+six.sub.fit <- lm(I(Chance.of.Admit^3) ~ I(GRE.Score^5) 
+                  + TOEFL.Score + I(University.Rating^0.75) 
+                  +LOR + I(CGPA^2) + Research, data = data)
+
+pander(summary(six.sub.fit))
+```
+
+
+# Stepwise Model
+```{r}
+stepAIC <- step(transformed_fit_app2, direction = "both"
+                , data = data)
+
+pander(summary(stepAIC))
+```
+
+
+# Stepwise Diagnostic Plot
+```{r}
+par(mfrow = c(2,2), mar = c(4,4,2,1))
+plot(stepAIC)
+```
+
+
+# Forward AIC Fit
+```{r}
+null_model <- lm(I(Chance.of.Admit^3) ~ 1)
+
+n <- nrow(data)
+
+forwardAIC <- stepAIC(null_model,
+                      scope = list(lower = null_model, 
+                                   upper = transformed_fit_app2), 
+                      direction = "forward", trace = FALSE)
+```
+
+# Summary Forward AIC
+```{r echo=FALSE}
+summary(forwardAIC)
+```
+# Forward AIC Plot
+```{r}
+par(mfrow = c(2,2), mar = c(4,4,2,1))
+plot(forwardAIC)
+```
+
+
+# Forward BIC Fit
+```{r}
+forwardBIC <- stepAIC(null_model, 
+                      scope = list(lower = null_model, 
+                                   upper = transformed_fit_app2), k=log(n)
+                      ,direction = "forward", 
+                      trace = FALSE)
+```
+
+# Summary Forward BIC
+```{r echo=FALSE}
+pander(summary(forwardBIC))
+
+```
+
+
+# Plot Forward BIC
+```{r}
+par(mfrow = c(2,2), mar = c(4,4,2,1))
+plot(forwardBIC)
+```
+
+# Backward AIC
+```{r}
+backwardAIC <- step(transformed_fit_app2, direction = "backward")
+summary(backwardAIC)
+```
+
+# Backward AIC Plot
+```{r}
+par(mfrow = c(2,2), mar = c(4,4,2,1))
+plot(backwardAIC)
+```
+
+
+# Backward BIC
+```{r}
+backwardBIC <- step(transformed_fit_app2, direction = "backward", k = log(n))
+summary(backwardBIC)
+```
+
+
+# Backward BIC Plot
+```{r}
+par(mfrow = c(2,2), mar = c(4,4,2,1))
+plot(backwardBIC)
+```
+
+# Backward BIC Coef
+```{r}
+pander(coef(backwardBIC))
+```
+
+# Prediction
+```{r}
+new_data_predict <- data.frame(
+  GRE.Score = 330,
+  TOEFL.Score = 115,
+  LOR = 4,
+  CGPA = 9.1,
+  Research = 1
+)
+
+admin_prediction_1 <- predict(backwardBIC, newdata = new_data_predict)
+predicted_original <- admin_prediction_1^(1/2.67)
+predicted_original
+```
+
+# Conclusion
+
+- Approach 2 provided the best model before variable selection
+
+- backwardBIC using the transformed predictors and response variables
+is the ideal model
+
+- Final Equation: 
+
+Chance.of.Admit^2.67 = -0.6091 + 5.427e-14(GRE.Score^5) +          
+                      2.165e-05(TOEFL.Score^2) +
+                      0.0303(LOR) + 0.000391(CGPA^3.33) 
+                      + 0.03983(Research)
+
